@@ -1,69 +1,80 @@
-'''Visualises the data file for cs410 camera calibration assignment
-To run: %run LoadCalibData.py
-'''
-import numpy as np
+from numpy import array, reshape, linalg, argmin, append, ones, loadtxt, mean, subtract, var, std, max, min
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d
 
-def calibrateCamera3D(data):
+
+def calibrate_camera_3d(data):
     world_points = data[:, :3]  # Gets the first 3 points (x, y, z) of real world
     image_points = data[:, 3:]  # Gets the last two (X,Y) of 2d world
-    A = []
+    a = []
 
     for i in range(len(data)):
-        worldX = world_points[i][0]
-        worldY = world_points[i][1]
-        worldZ = world_points[i][2]
+        w_x = world_points[i][0]
+        w_y = world_points[i][1]
+        w_z = world_points[i][2]
 
-        imageX = image_points[i][0]
-        imageY = image_points[i][1]
+        i_x = image_points[i][0]
+        i_y = image_points[i][1]
 
-        X = [worldX, worldY, worldZ, 1, 0, 0, 0, 0, -imageX * worldX, -imageX * worldY, -imageX * worldZ, -imageX]
-        Y = [0, 0, 0, 0, worldX, worldY, worldZ, 1, -imageY * worldX, -imageY * worldY, -imageY * worldZ, -imageY]
+        x = [w_x, w_y, w_z, 1, 0, 0, 0, 0, -i_x * w_x, -i_x * w_y, -i_x * w_z, -i_x]  # try list comp here
+        y = [0, 0, 0, 0, w_x, w_y, w_z, 1, -i_y * w_x, -i_y * w_y, -i_y * w_z, -i_y]
 
-        A.append((X,Y))
+        a.append((x, y))
 
-    A = np.asarray(A)
-    A = np.reshape(A, (982, 12)) # If getting error may need to seperate append above
+    a = array(a)
+    a = reshape(a, (982, 12))  # If getting error may need to seperate append above
 
-    D, V = np.linalg.eig(A.transpose().dot(A))
+    d, v = linalg.eig(a.transpose().dot(a))
 
-    est = V[:, np.argmin(D)]
+    est = v[:, argmin(d)]
+    est = reshape(est, (3, 4))  # (12,) -> (3,4) for transpose below
 
-    est = np.reshape(est, (3,4)) # (12,) -> (3,4) for transpose below
     return est
-    # print(est)
 
-def visualiseCameraCalibration3D(data, P):
-    threeD_homogenous = np.append(data[:, :3],np.ones([len(data),1]),1)
-    # twoD_homogenous = np.append(data[:, 3:], np.ones([len(data), 1]), 1)
+
+def visualise_camera_calibration_3d(data, p):
+    three_d_homogenous = append(data[:, :3], ones([len(data), 1]), 1)
     image_points = data[:, 3:]
-    """
-    Get the re-projection matrix by getting the dot product of the Camera
-    matrix, P, and the transpose of the 3D points, then transposing the
-    result.
-    """
 
+    three_d_homogenous = p.dot(three_d_homogenous.transpose())
+    overall = three_d_homogenous.transpose()
 
-    # print(threeD_homogenous.shape, P.shape)
-    # quit()
-    threeD_homogenous = P.dot(threeD_homogenous.transpose())
-    overall = threeD_homogenous.transpose()
-
-    # need to change below here
-
-    overall[:,0] /= overall[:,2] # X = X/Z
-    overall[:,1] /= overall[:,2] # Y = Y/Z
+    overall[:, 0] /= overall[:, 2]  # x = x/z
+    overall[:, 1] /= overall[:, 2]  # y = y/z
 
     # Plot the re-projected 2D points.
     fig = plt.figure("Camera calibration", figsize=(50, 50))
-    ax = fig.gca() # Automatic points
-    ax.plot(overall[:,0], overall[:,1], 'b.')
-    # The reprojection againest the old 2D points.
+    ax = fig.gca()  # Automatic points
+    ax.plot(overall[:, 0], overall[:, 1], 'b.')  # The reprojection againest the old 2D points.
 
-    ax.plot(image_points[:, 0],  image_points[:, 1], 'r.') # could just use image points
+    ax.plot(image_points[:, 0],  image_points[:, 1], 'r.')  # could just use image points
     plt.show()
 
-data = np.loadtxt('data.txt')
-P = calibrateCamera3D(data)
-visualiseCameraCalibration3D(data,P)
+    return overall
+
+
+def evaluate_camera_calibration_3d(data, p):
+
+    image_points = append(data[:, 3:], ones([len(data), 1]), 1)
+
+    dist = subtract(image_points, p)
+    print(f"Avg distance: {mean(dist)}")
+
+    var_2d = var(image_points, ddof=1)
+    var_3d = var(p, ddof=1)
+
+    print(f"Variance: {var_3d - var_2d}")
+
+    print(f"Max distance: {max(dist)}")
+
+    print(f"Min distance: {min(dist)}")
+
+    print(f"Std dev 2D: {std(image_points)}")
+
+    print(f"Std dev 3D: {std(p)}")
+
+
+data = loadtxt('data.txt')
+p = calibrate_camera_3d(data)
+p = visualise_camera_calibration_3d(data, p)
+evaluate_camera_calibration_3d(data, p)
