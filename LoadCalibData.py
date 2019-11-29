@@ -1,4 +1,5 @@
-from numpy import array, reshape, linalg, argmin, append, ones, loadtxt, mean, subtract, var, std, max, min
+#!/usr/bin/env python3
+from numpy import array, reshape, linalg, argmin, append, ones, loadtxt, mean, subtract, var, std, max, min, delete
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d
 
@@ -6,7 +7,7 @@ from mpl_toolkits.mplot3d import axes3d
 def calibrate_camera_3d(data):
     world_points = data[:, :3]  # Gets the first 3 points (x, y, z) of real world
     image_points = data[:, 3:]  # Gets the last two (X,Y) of 2d world
-    a = []
+    a = []  # Initialise A matrix
 
     for i in range(len(data)):
         w_x = world_points[i][0]
@@ -16,13 +17,13 @@ def calibrate_camera_3d(data):
         i_x = image_points[i][0]
         i_y = image_points[i][1]
 
-        x = [w_x, w_y, w_z, 1, 0, 0, 0, 0, -i_x * w_x, -i_x * w_y, -i_x * w_z, -i_x]  # try list comp here
+        x = [w_x, w_y, w_z, 1, 0, 0, 0, 0, -i_x * w_x, -i_x * w_y, -i_x * w_z, -i_x]
         y = [0, 0, 0, 0, w_x, w_y, w_z, 1, -i_y * w_x, -i_y * w_y, -i_y * w_z, -i_y]
 
         a.append((x, y))
 
     a = array(a)
-    a = reshape(a, (982, 12))  # If getting error may need to seperate append above
+    a = reshape(a, (982, 12))
 
     d, v = linalg.eig(a.transpose().dot(a))
 
@@ -33,7 +34,7 @@ def calibrate_camera_3d(data):
 
 
 def visualise_camera_calibration_3d(data, p):
-    three_d_homogenous = append(data[:, :3], ones([len(data), 1]), 1)
+    three_d_homogenous = append(data[:, :3], ones([len(data), 1]), 1)  # Make homogenous
     image_points = data[:, 3:]
 
     three_d_homogenous = p.dot(three_d_homogenous.transpose())
@@ -45,9 +46,8 @@ def visualise_camera_calibration_3d(data, p):
     # Plot the re-projected 2D points.
     fig = plt.figure("Camera calibration", figsize=(50, 50))
     ax = fig.gca()  # Automatic points
-    ax.plot(overall[:, 0], overall[:, 1], 'b.')  # The reprojection againest the old 2D points.
-
-    ax.plot(image_points[:, 0],  image_points[:, 1], 'r.')  # could just use image points
+    ax.plot(overall[:, 0], overall[:, 1], 'b.')  # The re-projection against the old 2D points.
+    ax.plot(image_points[:, 0],  image_points[:, 1], 'r.')
     plt.show()
 
     return overall
@@ -57,21 +57,12 @@ def evaluate_camera_calibration_3d(data, p):
 
     image_points = append(data[:, 3:], ones([len(data), 1]), 1)
 
-    dist = subtract(image_points, p)
+    dist = abs(subtract(image_points, p))
     print(f"Avg distance: {mean(dist)}")
-
-    var_2d = var(image_points, ddof=1)
-    var_3d = var(p, ddof=1)
-
-    print(f"Variance: {var_3d - var_2d}")
+    print(f"Variance: {var(dist)}")
 
     print(f"Max distance: {max(dist)}")
-
     print(f"Min distance: {min(dist)}")
-
-    print(f"Std dev 2D: {std(image_points)}")
-
-    print(f"Std dev 3D: {std(p)}")
 
 
 data = loadtxt('data.txt')
